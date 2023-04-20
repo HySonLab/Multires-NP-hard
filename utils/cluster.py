@@ -1,5 +1,8 @@
 import torch
 
+def create_similarity_matrix(input):
+  result=torch.cdist(input, input, p=2.0)
+  return result
 '''
 This function generate centroid lists by minimize cost in each order
 '''
