@@ -6,7 +6,7 @@ def create_similarity_matrix(input):
 '''
 This function generate centroid lists by minimize cost in each order
 '''
-def generate_centroids_via_total_distance_per_order(self,similarity_maxtrix,batched_order=4):
+def generate_centroids_via_total_distance_per_order(similarity_maxtrix,batched_order=4):
     matrix_shape=similarity_maxtrix.shape[0]
     number_clusters=int(matrix_shape/batched_order)
     similar_sum=torch.sum(similarity_maxtrix,axis=0)
@@ -19,14 +19,15 @@ def generate_centroids_via_total_distance_per_order(self,similarity_maxtrix,batc
 '''
 This function cluster all the item from generated centroids via merger sort
 '''
-def cluster_via_merge_sort(self,similar_matrix,batched_order=4):
-    size=len(similar_matrix.keys())
+def cluster_via_merge_sort(similar_matrix_torch,batched_order=4):
+    size=similar_matrix_torch.shape[0]
     num_clusters=int(size/batched_order)
-    similar_matrix_torch=torch.zeros(size,size)
-    for i in range(similar_matrix_torch.shape[0]):
-        for j in range(similar_matrix_torch.shape[0]):
-            similar_matrix_torch[i][j]=round(similar_matrix[str(i+1)][str(j+1)],2)   
-    list_centroids=self.generate_centroids_via_total_distance_per_order(similar_matrix_torch.detach().clone())
+    # similar_matrix_torch=torch.zeros(size,size)
+    # for i in range(similar_matrix_torch.shape[0]):
+    #     for j in range(similar_matrix_torch.shape[0]):
+    #         similar_matrix_torch[i][j]=round(similar_matrix[str(i+1)][str(j+1)],2)   
+    list_centroids=generate_centroids_via_total_distance_per_order(
+        similar_matrix_torch.detach().clone(),batched_order=batched_order)
     similar_centroids=similar_matrix_torch[list_centroids]
     sorted_similar_centroids,indices=torch.sort(similar_centroids,axis=1)
     remained_item=list(list_centroids)
@@ -55,3 +56,23 @@ def cluster_via_merge_sort(self,similar_matrix,batched_order=4):
             cluster_column[selected_row]+=1
 
     return list_clusters
+
+# print("test")
+# data=torch.rand(32,20,2)
+# similar=create_similarity_matrix(data)
+# result=[]
+# for i in range(similar.shape[0]):
+#     current_data=similar[i]
+#     length=current_data.shape[0]
+#     clustered=cluster_via_merge_sort(current_data,batched_order=5)
+#     reduced_x=torch.rand(4,2)
+#     for i in range(len(clustered)):
+#         selected_data=current_data[clustered[i]]
+#         reduced_x[i][0]=torch.sum(selected_data[:,0])/length
+#         reduced_x[i][1]=torch.sum(selected_data[:,1])/length
+# print(reduced_x)
+# my_data=torch.Tensor([[1,2],[3,4],[5,6]])
+# print
+# data=torch.sum(my_data[:,0])
+# data=torch.sum(my_data[:,1])
+# print(data)
