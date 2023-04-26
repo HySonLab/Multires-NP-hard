@@ -82,7 +82,6 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, pr
     set_decode_type(model, "sampling")
 
     for batch_id, batch in enumerate(tqdm(training_dataloader, disable=opts.no_progress_bar)):
-
         train_batch(
             model,
             optimizer,
@@ -94,7 +93,6 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, pr
             tb_logger,
             opts
         )
-
         step += 1
 
     epoch_duration = time.time() - start_time
@@ -138,20 +136,49 @@ def train_batch(
     x, bl_val = baseline.unwrap_batch(batch)
     x = move_to(x, opts.device)
     bl_val = move_to(bl_val, opts.device) if bl_val is not None else None
-    similar_matrix=create_similarity_matrix(x)
+    #similar_matrix=create_similarity_matrix(x)
     # Evaluate model, get costs and log probabilities
     graph_size=x.shape[1]
     start_merge=1
     loss_list=[]
+    ###################################
+    #data=torch.rand(32,20,2)
+    similar=create_similarity_matrix(x)
+    #print(similar.shape)
+    # result=[]
+    # for i in range(similar.shape[0]):
+    #     current_data=similar[i]
+    #     length=current_data.shape[0]
+    #     clustered=cluster_via_merge_sort(current_data,batched_order=5)
+    #     reduced_x=torch.rand(4,2)
+    #     for i in range(len(clustered)):
+    #         selected_data=current_data[clustered[i]]
+    #         reduced_x[i][0]=torch.sum(selected_data[:,0])/length
+    #         reduced_x[i][1]=torch.sum(selected_data[:,1])/length
+    
     while(graph_size/start_merge>10):
-        x_reduced=cluster_via_merge_sort(similar_matrix=similar_matrix,batched_order=start_merge)
+        reduced_x=torch.rand(x.shape[0],int(x.shape[1]/start_merge),2)
+        #print(reduced_x.shape)
+        for i in range(similar.shape[0]):
+            current_data=similar[i]
+            #print(current_data.shape)
+            length=current_data.shape[0]
+            clustered=cluster_via_merge_sort(current_data,batched_order=start_merge)
+            #print(clustered)
+            #reduced_x=torch.rand(4,2)
+            for j in range(len(clustered)):
+                selected_data=current_data[clustered[j]]
+                reduced_x[i][j][0]=torch.sum(selected_data[:,0])/length
+                reduced_x[i][j][1]=torch.sum(selected_data[:,1])/length
         #original cost
-        cost, log_likelihood = model(x_reduced)
+        reduced_x=move_to(reduced_x,opts.device)
+        cost, log_likelihood = model(reduced_x)
         # Evaluate baseline, get baseline loss if any (only for critic)
-        bl_val, bl_loss = baseline.eval(x_reduced, cost) if bl_val is None else (bl_val, 0)
+        bl_val, bl_loss = baseline.eval(reduced_x, cost) if bl_val is None else (bl_val, 0)
         # Calculate loss
         reinforce_loss = ((cost - bl_val) * log_likelihood).mean()
         loss_list.append( reinforce_loss + bl_loss)
+        start_merge*=5
     loss=sum(loss_list)/len(loss_list)
     # Perform backward pass and optimization step
     optimizer.zero_grad()
@@ -164,3 +191,6 @@ def train_batch(
     if step % int(opts.log_step) == 0:
         log_values(cost, grad_norms, epoch, batch_id, step,
                    log_likelihood, reinforce_loss, bl_loss, tb_logger, opts)
+
+
+print("test")
