@@ -158,18 +158,16 @@ def train_batch(
     
     while(graph_size/start_merge>10):
         reduced_x=torch.rand(x.shape[0],int(x.shape[1]/start_merge),2)
-        #print(reduced_x.shape)
         for i in range(similar.shape[0]):
             current_data=similar[i]
-            #print(current_data.shape)
             length=current_data.shape[0]
             clustered=cluster_via_merge_sort(current_data,batched_order=start_merge)
-            #print(clustered)
-            #reduced_x=torch.rand(4,2)
+            current_x=x[i]
             for j in range(len(clustered)):
-                selected_data=current_data[clustered[j]]
-                reduced_x[i][j][0]=torch.sum(selected_data[:,0])/length
-                reduced_x[i][j][1]=torch.sum(selected_data[:,1])/length
+                selected_data=current_x[clustered[j]]
+                
+                reduced_x[i][j][0]=torch.sum(selected_data[:,0])/selected_data.shape[0]
+                reduced_x[i][j][1]=torch.sum(selected_data[:,1])/selected_data.shape[0]
         #original cost
         reduced_x=move_to(reduced_x,opts.device)
         cost, log_likelihood = model(reduced_x)
@@ -177,6 +175,7 @@ def train_batch(
         bl_val, bl_loss = baseline.eval(reduced_x, cost) if bl_val is None else (bl_val, 0)
         # Calculate loss
         reinforce_loss = ((cost - bl_val) * log_likelihood).mean()
+        loss_current=reinforce_loss + bl_loss
         loss_list.append( reinforce_loss + bl_loss)
         start_merge*=5
     loss=sum(loss_list)/len(loss_list)
