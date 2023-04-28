@@ -110,6 +110,7 @@ class AttentionModel(nn.Module):
             n_layers=self.n_encode_layers,
             normalization=normalization
         )
+        
         # self.embedder = EGNN(
         #     # in_node_nf = embedding_dim,
         #     dim = embedding_dim
