@@ -10,7 +10,8 @@ from tensorboard_logger import Logger as TbLogger
 
 from nets.critic_network import CriticNetwork
 from options import get_options
-from train_multiple_resolution import train_epoch, validate, get_inner_model
+from train import train_epoch, validate, get_inner_model
+# from train_multiple_resolution import train_epoch, validate, get_inner_model
 from reinforce_baselines import NoBaseline, ExponentialBaseline, CriticBaseline, RolloutBaseline, WarmupBaseline
 from nets.attention_model import AttentionModel
 from nets.pointer_network import PointerNetwork, CriticNetworkLSTM
