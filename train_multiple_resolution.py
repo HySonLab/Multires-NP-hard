@@ -64,7 +64,7 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
     return grad_norms, grad_norms_clipped
 
 
-def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, problem, tb_logger, opts):
+def train_epoch(model, optimizer, baseline,baseline_1, lr_scheduler, epoch, val_dataset, problem, tb_logger, opts):
     print("Start train epoch {}, lr={} for run {}".format(epoch, optimizer.param_groups[0]['lr'], opts.run_name))
     step = epoch * (opts.epoch_size // opts.batch_size)
     start_time = time.time()
@@ -78,14 +78,17 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, pr
     training_dataloader = DataLoader(training_dataset, batch_size=opts.batch_size, num_workers=1)
 
     # Put model in train mode!
-    model.train()
-    set_decode_type(model, "sampling")
+    model[0].train()
+    model[1].train()
+    set_decode_type(model[0], "sampling")
+    set_decode_type(model[1], "sampling")
 
     for batch_id, batch in enumerate(tqdm(training_dataloader, disable=opts.no_progress_bar)):
         train_batch(
             model,
             optimizer,
             baseline,
+            baseline_1,
             epoch,
             batch_id,
             step,
@@ -102,7 +105,7 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, pr
         print('Saving model and state...')
         torch.save(
             {
-                'model': get_inner_model(model).state_dict(),
+                'model': get_inner_model(model[0]).state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'rng_state': torch.get_rng_state(),
                 'cuda_rng_state': torch.cuda.get_rng_state_all(),
@@ -111,21 +114,23 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, pr
             os.path.join(opts.save_dir, 'epoch-{}.pt'.format(epoch))
         )
 
-    avg_reward = validate(model, val_dataset, opts)
+    avg_reward = validate(model[0], val_dataset, opts)
 
     if not opts.no_tensorboard:
         tb_logger.log_value('val_avg_reward', avg_reward, step)
 
-    baseline.epoch_callback(model, epoch)
+    baseline.epoch_callback(model[0], epoch)
+    baseline_1.epoch_callback(model[1], epoch)
 
     # lr_scheduler should be called at end of epoch
     lr_scheduler.step()
 
 
 def train_batch(
-        model,
+        model_lists,
         optimizer,
         baseline,
+        baseline_1,
         epoch,
         batch_id,
         step,
@@ -139,7 +144,7 @@ def train_batch(
     #similar_matrix=create_similarity_matrix(x)
     # Evaluate model, get costs and log probabilities
     graph_size=x.shape[1]
-    start_merge=1
+    ori_start_merge=5
     loss_list=[]
     ###################################
     #data=torch.rand(32,20,2)
@@ -155,12 +160,13 @@ def train_batch(
     #         selected_data=current_data[clustered[i]]
     #         reduced_x[i][0]=torch.sum(selected_data[:,0])/length
     #         reduced_x[i][1]=torch.sum(selected_data[:,1])/length
-    
-    while(graph_size/start_merge>10):
+    level=0
+    start_merge=ori_start_merge**level
+    while(graph_size/start_merge>3):
         reduced_x=torch.rand(x.shape[0],int(x.shape[1]/start_merge),2)
+        #print(reduced_x)
         for i in range(similar.shape[0]):
             current_data=similar[i]
-            length=current_data.shape[0]
             clustered=cluster_via_merge_sort(current_data,batched_order=start_merge)
             current_x=x[i]
             for j in range(len(clustered)):
@@ -170,14 +176,21 @@ def train_batch(
                 reduced_x[i][j][1]=torch.sum(selected_data[:,1])/selected_data.shape[0]
         #original cost
         reduced_x=move_to(reduced_x,opts.device)
-        cost, log_likelihood = model(reduced_x)
+        #print(level,start_merge)
+        cost, log_likelihood = model_lists[level](x)
+        
+        #print(cost)
         # Evaluate baseline, get baseline loss if any (only for critic)
-        bl_val, bl_loss = baseline.eval(reduced_x, cost) if bl_val is None else (bl_val, 0)
+        if(level==0):
+            bl_val, bl_loss = baseline.eval(reduced_x, cost) if bl_val is None else (bl_val, 0)
+        else:
+            bl_val, bl_loss = baseline_1.eval(reduced_x, cost) if bl_val is None else (bl_val, 0)
         # Calculate loss
         reinforce_loss = ((cost - bl_val) * log_likelihood).mean()
         loss_current=reinforce_loss + bl_loss
         loss_list.append( reinforce_loss + bl_loss)
-        start_merge*=5
+        level+=1
+        start_merge=ori_start_merge**level
     loss=sum(loss_list)/len(loss_list)
     # Perform backward pass and optimization step
     optimizer.zero_grad()

@@ -10,7 +10,7 @@ from tensorboard_logger import Logger as TbLogger
 
 from nets.critic_network import CriticNetwork
 from options import get_options
-from train import train_epoch, validate, get_inner_model
+from train_multiple_resolution import train_epoch, validate, get_inner_model
 # from train_multiple_resolution import train_epoch, validate, get_inner_model
 from reinforce_baselines import NoBaseline, ExponentialBaseline, CriticBaseline, RolloutBaseline, WarmupBaseline
 from nets.attention_model import AttentionModel
@@ -53,30 +53,34 @@ def run(opts):
         load_data = torch_load_cpu(load_path)
 
     # Initialize model
-    model_class = {
-        'attention': AttentionModel,
-        'pointer': PointerNetwork
-    }.get(opts.model, None)
-    assert model_class is not None, "Unknown model: {}".format(model_class)
-    model = model_class(
-        opts.embedding_dim,
-        opts.hidden_dim,
-        problem,
-        n_encode_layers=opts.n_encode_layers,
-        mask_inner=True,
-        mask_logits=True,
-        normalization=opts.normalization,
-        tanh_clipping=opts.tanh_clipping,
-        checkpoint_encoder=opts.checkpoint_encoder,
-        shrink_size=opts.shrink_size
-    ).to(opts.device)
+    model_list=[]
+    for _ in range(2):
+        model_class = {
+            'attention': AttentionModel,
+            'pointer': PointerNetwork
+        }.get(opts.model, None)
+        assert model_class is not None, "Unknown model: {}".format(model_class)
+        model = model_class(
+            opts.embedding_dim,
+            opts.hidden_dim,
+            problem,
+            n_encode_layers=opts.n_encode_layers,
+            mask_inner=True,
+            mask_logits=True,
+            normalization=opts.normalization,
+            tanh_clipping=opts.tanh_clipping,
+            checkpoint_encoder=opts.checkpoint_encoder,
+            shrink_size=opts.shrink_size
+        ).to(opts.device)
 
-    if opts.use_cuda and torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
-
+        if opts.use_cuda and torch.cuda.device_count() > 1:
+            model = torch.nn.DataParallel(model)
+        model_list.append(model)
     # Overwrite model parameters by parameters to load
-    model_ = get_inner_model(model)
+    model_ = get_inner_model(model_list[0])
     model_.load_state_dict({**model_.state_dict(), **load_data.get('model', {})})
+    print(model_list[0])
+    print(model_list[1])
 
     # Initialize baseline
     if opts.baseline == 'exponential':
@@ -104,24 +108,35 @@ def run(opts):
             ).to(opts.device)
         )
     elif opts.baseline == 'rollout':
-        baseline = RolloutBaseline(model, problem, opts)
+        baseline = RolloutBaseline(model_list[0], problem, opts)
+        baseline_1 = RolloutBaseline(model_list[1], problem, opts)
     else:
         assert opts.baseline is None, "Unknown baseline: {}".format(opts.baseline)
         baseline = NoBaseline()
+        baseline_1 = NoBaseline()
 
     if opts.bl_warmup_epochs > 0:
         baseline = WarmupBaseline(baseline, opts.bl_warmup_epochs, warmup_exp_beta=opts.exp_beta)
+        baseline_1 = WarmupBaseline(baseline_1, opts.bl_warmup_epochs, warmup_exp_beta=opts.exp_beta)
 
     # Load baseline from data, make sure script is called with same type of baseline
     if 'baseline' in load_data:
         baseline.load_state_dict(load_data['baseline'])
+        baseline_1.load_state_dict(load_data['baseline'])
 
     # Initialize optimizer
     optimizer = optim.Adam(
-        [{'params': model.parameters(), 'lr': opts.lr_model}]
+        [{'params': model_list[0].parameters(), 'lr': opts.lr_model}]
+        +[{'params': model_list[1].parameters(), 'lr': opts.lr_model}]
         + (
             [{'params': baseline.get_learnable_parameters(), 'lr': opts.lr_critic}]
             if len(baseline.get_learnable_parameters()) > 0
+            else []
+        )
+        +
+        (
+            [{'params': baseline_1.get_learnable_parameters(), 'lr': opts.lr_critic}]
+            if len(baseline_1.get_learnable_parameters()) > 0
             else []
         )
     )
@@ -150,18 +165,20 @@ def run(opts):
             torch.cuda.set_rng_state_all(load_data['cuda_rng_state'])
         # Set the random states
         # Dumping of state was done before epoch callback, so do that now (model is loaded)
-        baseline.epoch_callback(model, epoch_resume)
+        baseline.epoch_callback(model_list[0], epoch_resume)
+        baseline_1.epoch_callback(model_list[1], epoch_resume)
         print("Resuming after {}".format(epoch_resume))
         opts.epoch_start = epoch_resume + 1
 
     if opts.eval_only:
-        validate(model, val_dataset, opts)
+        validate(model_list[0], val_dataset, opts)
     else:
         for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
             train_epoch(
-                model,
+                model_list,
                 optimizer,
                 baseline,
+                baseline_1,
                 lr_scheduler,
                 epoch,
                 val_dataset,
