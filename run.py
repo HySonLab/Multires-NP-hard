@@ -79,6 +79,8 @@ def run(opts):
     # Overwrite model parameters by parameters to load
     model_ = get_inner_model(model_list[0])
     model_.load_state_dict({**model_.state_dict(), **load_data.get('model', {})})
+    model_1 = get_inner_model(model_list[1])
+    model_1.load_state_dict({**model_1.state_dict(), **load_data.get('model', {})})
     print(model_list[0])
     print(model_list[1])
 
