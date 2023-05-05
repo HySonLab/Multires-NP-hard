@@ -64,8 +64,9 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
     return grad_norms, grad_norms_clipped
 
 
-def train_epoch(model, optimizer, baseline,baseline_1, lr_scheduler, epoch, val_dataset, problem, tb_logger, opts):
+def train_epoch(model, optimizer, baseline,baseline_1, lr_scheduler, epoch, val_dataset, problem, tb_logger, opts,previous_cost):
     print("Start train epoch {}, lr={} for run {}".format(epoch, optimizer.param_groups[0]['lr'], opts.run_name))
+    print(" previous reward " + str( previous_cost))
     step = epoch * (opts.epoch_size // opts.batch_size)
     start_time = time.time()
 
@@ -101,7 +102,10 @@ def train_epoch(model, optimizer, baseline,baseline_1, lr_scheduler, epoch, val_
     epoch_duration = time.time() - start_time
     print("Finished epoch {}, took {} s".format(epoch, time.strftime('%H:%M:%S', time.gmtime(epoch_duration))))
 
-    if (opts.checkpoint_epochs != 0 and epoch % opts.checkpoint_epochs == 0) or epoch == opts.n_epochs - 1:
+    avg_reward = validate(model[0], val_dataset, opts)
+    if(avg_reward<previous_cost or previous_cost==0):
+
+    #if (opts.checkpoint_epochs != 0 and epoch % opts.checkpoint_epochs == 0) or epoch == opts.n_epochs - 1:
         print('Saving model and state...')
         torch.save(
             {
@@ -111,10 +115,10 @@ def train_epoch(model, optimizer, baseline,baseline_1, lr_scheduler, epoch, val_
                 'cuda_rng_state': torch.cuda.get_rng_state_all(),
                 'baseline': baseline.state_dict()
             },
-            os.path.join(opts.save_dir, 'epoch-{}.pt'.format(epoch))
+            os.path.join(opts.save_dir, 'epoch-{}-cost-{}.pt'.format(epoch,avg_reward))
         )
 
-    avg_reward = validate(model[0], val_dataset, opts)
+    #avg_reward = validate(model[0], val_dataset, opts)
 
     if not opts.no_tensorboard:
         tb_logger.log_value('val_avg_reward', avg_reward, step)
@@ -124,6 +128,7 @@ def train_epoch(model, optimizer, baseline,baseline_1, lr_scheduler, epoch, val_
 
     # lr_scheduler should be called at end of epoch
     lr_scheduler.step()
+    return avg_reward
 
 
 def train_batch(

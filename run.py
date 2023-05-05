@@ -175,8 +175,9 @@ def run(opts):
     if opts.eval_only:
         validate(model_list[0], val_dataset, opts)
     else:
+        reward=0
         for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
-            train_epoch(
+            reward=train_epoch(
                 model_list,
                 optimizer,
                 baseline,
@@ -186,8 +187,10 @@ def run(opts):
                 val_dataset,
                 problem,
                 tb_logger,
-                opts
+                opts,
+                reward
             )
+
 
 
 if __name__ == "__main__":
