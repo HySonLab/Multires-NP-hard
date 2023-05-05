@@ -11,7 +11,7 @@ from utils.beam_search import CachedLookup
 from utils.functions import sample_many
 
 
-from egnn_pytorch import EGNN_Network, EGNN
+from nets.egnn_pytorch import EGNN_Network, EGNN
 
 def set_decode_type(model, decode_type):
     if isinstance(model, DataParallel):
