@@ -91,7 +91,7 @@ python eval.py -h
 ### Example CVRP solution
 See `plot_vrp.ipynb` for an example of loading a pretrained model and plotting the result for Capacitated VRP with 100 nodes.
 
-![CVRP100](images/cvrp_0.png)
+![CVRP100](cvrp.png)
 
 ## Acknowledgements
 Thanks to [pemami4911/neural-combinatorial-rl-pytorch](https://github.com/pemami4911/neural-combinatorial-rl-pytorch) for getting me started with the code for the Pointer Network.
