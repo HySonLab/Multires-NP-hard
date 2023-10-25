@@ -6,6 +6,7 @@ Contributors:
 * Thong Bach
 * Tran Cong Dao
 * Hy Truong Son (Correspondent / PI)
+  
 ## Dependencies
 
 * Python>=3.8
@@ -103,3 +104,15 @@ This repository includes adaptions of the following repositories as baselines:
 * https://github.com/mc-ride/orienteering
 * https://github.com/jordanamecler/PCTSP
 * https://github.com/rafael2reis/salesman
+
+## Please cite our paper with the following bibtex!
+```bibtex
+@misc{tran2023symmetrypreserving,
+      title={Symmetry-preserving graph attention network to solve routing problems at multiple resolutions}, 
+      author={Cong Dao Tran and Thong Bach and Truong Son Hy},
+      year={2023},
+      eprint={2310.15543},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
