@@ -1,5 +1,7 @@
 # Multiresolution learning to solve NP-hard problems in Opeartion Research
 
+Paper "Symmetry-preserving graph attention network to solve routing problems at multiple resolutions" https://arxiv.org/pdf/2310.15543.pdf
+
 Contributors:
 * Thong Bach
 * Tran Cong Dao
