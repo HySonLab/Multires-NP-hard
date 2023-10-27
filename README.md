@@ -1,4 +1,4 @@
-# Multiresolution learning to solve NP-hard problems in Opeartion Research
+# Symmetry-preserving & Multiresolution learning to solve NP-hard problems in Operations Research
 
 ![Figure](Symm-Multi-Figure.png)
 
