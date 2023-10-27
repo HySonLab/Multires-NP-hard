@@ -2,7 +2,9 @@
 
 ![Figure](Symm-Multi-Figure.png)
 
-Paper "Symmetry-preserving graph attention network to solve routing problems at multiple resolutions" https://arxiv.org/pdf/2310.15543.pdf
+Paper **Symmetry-preserving graph attention network to solve routing problems at multiple resolutions**: 
+
+https://arxiv.org/pdf/2310.15543.pdf
 
 Contributors:
 * Thong Bach
